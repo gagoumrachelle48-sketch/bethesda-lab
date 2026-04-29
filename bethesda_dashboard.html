@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bethesda — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#09101f;--card:#0f1a2e;--card2:#132035;--border:#1a2d48;
+  --text:#b8cde8;--muted:#3d5a7a;--accent:#00c6ff;
+  --danger:#ff3b5c;--warn:#ffaa00;--ok:#00e096;--purple:#a855f7;
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px}
+body{background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,198,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,198,255,.02) 1px,transparent 1px);
+  background-size:40px 40px}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px 44px;width:420px}
+.login-logo{font-size:22px;font-weight:800;color:var(--accent);margin-bottom:6px;letter-spacing:.5px}
+.login-logo span{color:var(--text);font-weight:400}
+.login-sub{color:var(--muted);font-size:12px;margin-bottom:32px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.login-field input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border .15s}
+.login-field input:focus{border-color:rgba(0,198,255,.4)}
+#login-err{display:none;background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px}
+.btn-login{width:100%;background:rgba(0,198,255,.15);border:1px solid rgba(0,198,255,.35);color:var(--accent);border-radius:8px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-login:hover{background:rgba(0,198,255,.25)}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+.api-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.api-dot{width:7px;height:7px;border-radius:50%;background:var(--warn);animation:pulse 1.4s infinite}
+.api-dot.ok{background:var(--ok);animation:none}
+.api-dot.err{background:var(--danger);animation:none}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}
+
+/* ── LAYOUT ── */
+.wrap{display:flex;flex:1;overflow:hidden;position:relative;z-index:1}
+.side{width:190px;flex-shrink:0;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 0}
+.logo{font-size:16px;font-weight:800;color:var(--accent);padding:0 16px 16px;border-bottom:1px solid var(--border);letter-spacing:.3px}
+.logo em{color:var(--text);font-style:normal;font-weight:400}
+.nav{flex:1;padding:12px 0}
+.nitem{display:flex;align-items:center;gap:9px;padding:10px 16px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .15s;user-select:none}
+.nitem:hover{color:var(--text);background:rgba(0,198,255,.04)}
+.nitem.on{color:var(--accent);border-left-color:var(--accent);background:rgba(0,198,255,.07)}
+.nitem svg{width:14px;height:14px;flex-shrink:0}
+.side-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.ubadge{display:flex;align-items:center;gap:8px;background:var(--card2);border-radius:8px;padding:8px 10px}
+.av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+.uname{font-size:12px;font-weight:500;color:#fff}
+.urole{font-size:10px;color:var(--muted)}
+.btn-logout{width:100%;margin-top:8px;background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.2);color:var(--danger);border-radius:6px;padding:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-logout:hover{background:rgba(255,59,92,.18)}
+
+.content{flex:1;overflow:auto;padding:20px}
+.page{display:none}.page.on{display:block}
+
+/* ── HEADER ── */
+.phdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.phdr h2{font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.phdr p{font-size:11px;color:var(--muted);margin-top:2px}
+.alert-pill{display:flex;align-items:center;gap:6px;background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:7px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.alert-pill:hover{background:rgba(255,59,92,.2)}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--danger);animation:pulse 1.4s infinite}
+
+/* ── KPIs ── */
+.kgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;transition:transform .15s}
+.kcard.clickable{cursor:pointer}.kcard.clickable:hover{transform:translateY(-2px)}
+.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.k-bl::before{background:var(--accent)}.k-gn::before{background:var(--ok)}.k-rd::before{background:var(--danger)}.k-wn::before{background:var(--warn)}.k-pu::before{background:var(--purple)}
+.kico{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.k-bl .kico{background:rgba(0,198,255,.12)}.k-gn .kico{background:rgba(0,224,150,.12)}.k-rd .kico{background:rgba(255,59,92,.12)}.k-wn .kico{background:rgba(255,170,0,.12)}.k-pu .kico{background:rgba(168,85,247,.12)}
+.kval{font-size:28px;font-weight:800;line-height:1;letter-spacing:-1px}
+.k-bl .kval{color:var(--accent)}.k-gn .kval{color:var(--ok)}.k-rd .kval{color:var(--danger)}.k-wn .kval{color:var(--warn)}.k-pu .kval{color:var(--purple)}
+.klbl{font-size:10px;color:var(--muted);margin-top:4px}
+
+.crow{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:10px;margin-bottom:16px}
+.crd{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.ctitle{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.ctitle-l{display:flex;align-items:center;gap:6px}
+.cdot{width:5px;height:5px;border-radius:50%}
+.view-all{color:var(--accent);font-size:10px;font-weight:700;cursor:pointer}
+.view-all:hover{text-decoration:underline}
+canvas{display:block;width:100%!important}
+
+.brow{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin-bottom:16px}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.tab{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border:1px solid transparent;transition:all .15s;user-select:none}
+.tab:hover{color:var(--text)}.tab.on{background:rgba(0,198,255,.1);color:var(--accent);border-color:rgba(0,198,255,.25)}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:0 8px 9px 0;border-bottom:1px solid var(--border);text-align:left}
+.tbl td{padding:8px 8px 8px 0;border-bottom:1px solid rgba(26,45,72,.6);font-size:12px;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr{cursor:pointer;transition:background .12s}
+.tbl tbody tr:hover td{background:rgba(0,198,255,.03)}
+.pname{font-weight:600;color:#fff;font-size:12px}
+.pid{font-size:10px;color:var(--muted)}
+.patho{font-size:11px;color:var(--text);max-width:160px;line-height:1.3}
+
+/* ── BADGES ── */
+.bdg{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700}
+.bte{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
+.bel{background:rgba(255,59,92,.12);color:var(--danger);border:1px solid rgba(255,59,92,.25)}
+.bmo{background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.25)}
+.bfa{background:rgba(0,224,150,.1);color:var(--ok);border:1px solid rgba(0,224,150,.25)}
+.boui{background:rgba(255,59,92,.1);color:var(--danger);border:1px solid rgba(255,59,92,.3)}
+.bnon{background:rgba(0,224,150,.08);color:var(--ok);border:1px solid rgba(0,224,150,.25)}
+.bnorm{background:rgba(0,224,150,.1);color:var(--ok);border:1px solid rgba(0,224,150,.25)}
+.bsuiv{background:rgba(255,170,0,.1);color:var(--warn);border:1px solid rgba(255,170,0,.25)}
+.bcrit{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
+.bport{background:rgba(255,59,92,.12);color:var(--danger);border:1px solid rgba(255,59,92,.25)}
+.bntu{background:rgba(255,170,0,.1);color:var(--warn);border:1px solid rgba(255,170,0,.25)}
+
+/* ── ALERTES ── */
+.alist{display:flex;flex-direction:column;gap:7px}
+.aitem{background:rgba(255,59,92,.05);border:1px solid rgba(255,59,92,.18);border-left:3px solid var(--danger);padding:10px 12px;cursor:pointer;transition:background .15s}
+.aitem:hover{background:rgba(255,59,92,.1)}
+.apat{font-size:10px;font-weight:700;color:var(--danger);margin-bottom:2px}
+.aparam{font-size:12px;color:#fff;font-weight:600}
+.aval{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* ── FORMULAIRE ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.form-grid.col2{grid-template-columns:1fr 1fr}
+.fgroup{display:flex;flex-direction:column;gap:5px}
+.fgroup.full{grid-column:1/-1}
+.flabel{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.finput{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border .15s;width:100%}
+.finput:focus{border-color:rgba(0,198,255,.4)}
+select.finput option{background:var(--card2)}
+.fmsg{display:none;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-top:12px}
+.fmsg.ok{background:rgba(0,224,150,.1);border:1px solid rgba(0,224,150,.3);color:var(--ok)}
+.fmsg.err{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--danger)}
+.form-actions{display:flex;align-items:center;justify-content:space-between;margin-top:18px;border-top:1px solid var(--border);padding-top:16px}
+.btn-cancel{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-cancel:hover{color:var(--text)}
+.btn-submit{background:rgba(0,198,255,.15);border:1px solid rgba(0,198,255,.35);color:var(--accent);border-radius:7px;padding:9px 22px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-submit:hover{background:rgba(0,198,255,.25)}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed}
+.btn-add{display:flex;align-items:center;gap:7px;background:rgba(0,198,255,.12);border:1px solid rgba(0,198,255,.3);color:var(--accent);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-add:hover{background:rgba(0,198,255,.22)}
+
+/* ── SEARCH ── */
+.search-box{display:flex;gap:8px;margin-bottom:16px}
+.sinput{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none}
+.sinput::placeholder{color:var(--muted)}
+.sinput:focus{border-color:rgba(0,198,255,.4)}
+.sbtn{background:rgba(0,198,255,.12);border:1px solid rgba(0,198,255,.3);color:var(--accent);border-radius:8px;padding:10px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.sbtn:hover{background:rgba(0,198,255,.22)}
+.no-res{color:var(--muted);font-size:12px;padding:24px 0;text-align:center}
+
+/* ── STATS ── */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.bars{display:flex;flex-direction:column;gap:9px}
+.brow2{display:flex;flex-direction:column;gap:4px}
+.blbl{display:flex;justify-content:space-between;font-size:11px}
+.blbl span:first-child{color:var(--text)}.blbl span:last-child{color:var(--muted);font-weight:600}
+.bbg{height:5px;background:rgba(26,45,72,.9);border-radius:99px;overflow:hidden}
+.bfill{height:100%;border-radius:99px}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(9,16,31,.88);z-index:1000;align-items:flex-start;justify-content:center;padding-top:40px;overflow:auto}
+.modal-bg.on{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;width:540px;max-width:95%;position:relative;margin-bottom:40px}
+.modal-close{position:absolute;top:14px;right:14px;background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--danger);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.modal-close:hover{background:rgba(255,59,92,.25)}
+.modal h3{font-size:17px;font-weight:800;color:#fff;margin-bottom:16px;padding-right:80px}
+.mrow{display:flex;gap:8px;margin-bottom:7px;font-size:12px}
+.mlbl{color:var(--muted);width:140px;flex-shrink:0;font-weight:500}
+.mval{color:var(--text)}
+.msep{height:1px;background:var(--border);margin:14px 0}
+
+/* ── LOADING ── */
+.loading{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:20px 0}
+.spin{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+</style>
+</head>
+<body>
+
+<!-- ══ ÉCRAN DE CONNEXION ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">BETHESDA<span>lab</span></div>
+    <div class="login-sub">Système de Gestion des Analyses Médicales</div>
+    <div id="login-err"></div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="l-email" placeholder="votre@email.fr" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="l-mdp" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Se connecter</button>
+    <div class="api-status">
+      <div class="api-dot" id="api-dot"></div>
+      <span id="api-status-txt">Vérification de l'API…</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APPLICATION ══ -->
+<div class="wrap" style="display:none" id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="logo">BETHESDA<em>lab</em></div>
+    <nav class="nav">
+      <div class="nitem on" data-page="dashboard">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
+      </div>
+      <div class="nitem" data-page="patients">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Patients
+      </div>
+      <div class="nitem" data-page="examens">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>Examens
+      </div>
+      <div class="nitem" data-page="porteurs">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Porteurs
+      </div>
+      <div class="nitem" data-page="alertes">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Alertes critiques
+      </div>
+      <div class="nitem" data-page="search">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Recherche
+      </div>
+      <div class="nitem" data-page="stats">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Statistiques
+      </div>
+      <div class="nitem" data-page="utilisateurs" id="nav-users" style="display:none">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Utilisateurs
+      </div>
+    </nav>
+    <div class="side-footer">
+      <div class="ubadge">
+        <div class="av" id="user-av">?</div>
+        <div><div class="uname" id="user-name">—</div><div class="urole" id="user-role">—</div></div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Se déconnecter</button>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ════ DASHBOARD ════ -->
+    <div class="page on" id="page-dashboard">
+      <div class="phdr">
+        <div><h2>Tableau de Bord</h2><p id="clock">Laboratoire Bethesda</p></div>
+        <div class="alert-pill" onclick="goPage('alertes')"><div class="pulse-dot"></div><span id="nb-critiques-pill">— alertes</span></div>
+      </div>
+      <div class="kgrid">
+        <div class="kcard k-bl clickable" onclick="goPage('patients')"><div class="kico"><svg width="14" height="14" fill="none" stroke="#00c6ff" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="kval" id="k-patients">—</div><div class="klbl">Patients ↗</div></div>
+        <div class="kcard k-gn clickable" onclick="goPage('examens')"><div class="kico"><svg width="14" height="14" fill="none" stroke="#00e096" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></div><div class="kval" id="k-examens">—</div><div class="klbl">Examens ↗</div></div>
+        <div class="kcard k-wn"><div class="kico"><svg width="14" height="14" fill="none" stroke="#ffaa00" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div class="kval" id="k-resultats">—</div><div class="klbl">Résultats</div></div>
+        <div class="kcard k-rd clickable" onclick="goPage('porteurs')"><div class="kico"><svg width="14" height="14" fill="none" stroke="#ff3b5c" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="kval" id="k-porteurs">—</div><div class="klbl">Porteurs ↗</div></div>
+        <div class="kcard k-pu clickable" onclick="goPage('alertes')"><div class="kico"><svg width="14" height="14" fill="none" stroke="#a855f7" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kval" id="k-critiques">—</div><div class="klbl">Critiques ↗</div></div>
+      </div>
+      <div class="crow">
+        <div class="crd"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--accent)"></div>Statut patients</div></div><canvas id="c1" height="160"></canvas></div>
+        <div class="crd"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--danger)"></div>Niveaux de risque</div></div><canvas id="c2" height="160"></canvas></div>
+        <div class="crd"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--warn)"></div>Résultats par statut</div></div><canvas id="c3" height="160"></canvas></div>
+      </div>
+      <div class="brow">
+        <div class="crd">
+          <div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--danger)"></div>Porteurs récents</div><span class="view-all" onclick="goPage('porteurs')">VOIR TOUS →</span></div>
+          <div id="dash-porteurs"><div class="loading"><div class="spin"></div>Chargement…</div></div>
+        </div>
+        <div class="crd">
+          <div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--danger)"></div>Alertes critiques</div><span class="view-all" onclick="goPage('alertes')">TOUTES →</span></div>
+          <div class="alist" id="dash-alertes"><div class="loading"><div class="spin"></div>Chargement…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ PATIENTS ════ -->
+    <div class="page" id="page-patients">
+      <div class="phdr">
+        <div><h2>Patients</h2><p id="pat-lbl">Chargement…</p></div>
+        <button class="btn-add" id="btn-nouveau-patient" onclick="toggleFormPatient()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nouveau patient
+        </button>
+      </div>
+      <!-- Formulaire nouveau patient -->
+      <div id="form-patient" style="display:none;margin-bottom:16px">
+        <div class="crd" style="border-color:rgba(0,198,255,.3)">
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:18px">Enregistrer un nouveau patient</div>
+          <div class="form-grid">
+            <div class="fgroup"><span class="flabel">Nom *</span><input class="finput" id="f-nom" placeholder="NOM" maxlength="50"></div>
+            <div class="fgroup"><span class="flabel">Prénom *</span><input class="finput" id="f-prenom" placeholder="Prénom" maxlength="50"></div>
+            <div class="fgroup"><span class="flabel">Date de naissance *</span><input class="finput" type="date" id="f-ddn"></div>
+            <div class="fgroup"><span class="flabel">Sexe *</span><select class="finput" id="f-sexe"><option value="">--</option><option value="F">Féminin</option><option value="M">Masculin</option></select></div>
+            <div class="fgroup"><span class="flabel">Groupe sanguin *</span><select class="finput" id="f-gs"><option value="">--</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
+            <div class="fgroup"><span class="flabel">Médecin traitant</span><input class="finput" id="f-medecin" placeholder="Dr. Nom Prénom"></div>
+            <div class="fgroup"><span class="flabel">Téléphone</span><input class="finput" id="f-tel" placeholder="+33 6 XX XX XX XX"></div>
+            <div class="fgroup"><span class="flabel">Email</span><input class="finput" type="email" id="f-email" placeholder="patient@email.fr"></div>
+            <div class="fgroup"><span class="flabel">Statut initial</span><select class="finput" id="f-statut"><option value="NORMAL">Normal</option><option value="SUIVI">Suivi</option></select></div>
+            <div class="fgroup full"><span class="flabel">Adresse</span><input class="finput" id="f-adresse" placeholder="Adresse complète"></div>
+          </div>
+          <div class="fmsg" id="f-pat-msg"></div>
+          <div class="form-actions">
+            <span style="font-size:11px;color:var(--muted)">* Champs obligatoires</span>
+            <div style="display:flex;gap:10px">
+              <button class="btn-cancel" onclick="toggleFormPatient()">Annuler</button>
+              <button class="btn-submit" id="btn-save-patient" onclick="sauvegarderPatient()">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab on" onclick="filterPatients(this,'')">Tous (<span id="cnt-all">0</span>)</div>
+        <div class="tab" onclick="filterPatients(this,'NORMAL')">Normal (<span id="cnt-normal">0</span>)</div>
+        <div class="tab" onclick="filterPatients(this,'SUIVI')">Suivi (<span id="cnt-suivi">0</span>)</div>
+        <div class="tab" onclick="filterPatients(this,'PORTEUR')">Porteur (<span id="cnt-porteur">0</span>)</div>
+        <div class="tab" onclick="filterPatients(this,'CRITIQUE')">Critique (<span id="cnt-critique">0</span>)</div>
+      </div>
+      <div class="crd"><table class="tbl"><thead><tr><th>ID</th><th>Nom & Prénom</th><th>DDN</th><th>Sexe</th><th>Groupe sg.</th><th>Médecin traitant</th><th>Statut</th></tr></thead><tbody id="pat-body"></tbody></table></div>
+    </div>
+
+    <!-- ════ EXAMENS ════ -->
+    <div class="page" id="page-examens">
+      <div class="phdr"><div><h2>Examens</h2><p id="exam-lbl">Chargement…</p></div></div>
+      <div class="tabs">
+        <div class="tab on" onclick="filterExamens(this,'')">Tous</div>
+        <div class="tab" onclick="filterExamens(this,'NORMAL')">Normal</div>
+        <div class="tab" onclick="filterExamens(this,'URGENT')">Urgent</div>
+        <div class="tab" onclick="filterExamens(this,'TRES_URGENT')">Très urgent</div>
+      </div>
+      <div class="crd"><table class="tbl"><thead><tr><th>ID</th><th>Patient</th><th>Catégorie</th><th>Date</th><th>Mode</th><th>Priorité</th><th>Statut</th></tr></thead><tbody id="exam-body"></tbody></table></div>
+    </div>
+
+    <!-- ════ PORTEURS ════ -->
+    <div class="page" id="page-porteurs">
+      <div class="phdr"><div><h2>Patients Porteurs</h2><p id="port-lbl">Chargement…</p></div></div>
+      <div class="crd"><table class="tbl"><thead><tr><th>Patient</th><th>Pathologie</th><th>Risque</th><th>Recommandation</th><th>Porteur</th></tr></thead><tbody id="port-body"></tbody></table></div>
+    </div>
+
+    <!-- ════ ALERTES ════ -->
+    <div class="page" id="page-alertes">
+      <div class="phdr"><div><h2>Alertes Critiques</h2><p id="alert-lbl">Chargement…</p></div></div>
+      <div class="alist" id="alert-body"></div>
+    </div>
+
+    <!-- ════ RECHERCHE ════ -->
+    <div class="page" id="page-search">
+      <div class="phdr"><div><h2>Recherche</h2><p>Rechercher par nom, prénom, ID ou médecin</p></div></div>
+      <div class="search-box">
+        <input class="sinput" id="s-input" placeholder="Ex: MARTIN, Sophie, PAT-001…">
+        <button class="sbtn" onclick="doSearch()">Rechercher</button>
+      </div>
+      <div id="s-results"><p class="no-res">Tapez pour rechercher</p></div>
+    </div>
+
+    <!-- ════ STATISTIQUES ════ -->
+    <div class="page" id="page-stats">
+      <div class="phdr"><div><h2>Statistiques</h2><p>Analyse complète des données</p></div></div>
+      <div class="sgrid">
+        <div class="scard"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--accent)"></div>Statut des patients</div></div><canvas id="cs1" height="200"></canvas></div>
+        <div class="scard"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--purple)"></div>Niveaux de risque</div></div><canvas id="cs2" height="200"></canvas></div>
+        <div class="scard"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--danger)"></div>Résultats par statut</div></div><canvas id="cs3" height="200"></canvas></div>
+        <div class="scard"><div class="ctitle"><div class="ctitle-l"><div class="cdot" style="background:var(--ok)"></div>Taux porteurs</div></div><canvas id="cs4" height="170"></canvas><p style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted)" id="taux-porteurs-lbl"></p></div>
+      </div>
+    </div>
+
+    <!-- ════ UTILISATEURS (ADMIN) ════ -->
+    <div class="page" id="page-utilisateurs">
+      <div class="phdr">
+        <div><h2>Utilisateurs</h2><p id="user-lbl">Gestion des comptes</p></div>
+        <button class="btn-add" onclick="toggleFormUser()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nouveau compte
+        </button>
+      </div>
+      <div id="form-user" style="display:none;margin-bottom:16px">
+        <div class="crd" style="border-color:rgba(0,198,255,.3)">
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:18px">Créer un compte utilisateur</div>
+          <div class="form-grid">
+            <div class="fgroup"><span class="flabel">Nom *</span><input class="finput" id="u-nom" placeholder="NOM" maxlength="50"></div>
+            <div class="fgroup"><span class="flabel">Prénom *</span><input class="finput" id="u-prenom" placeholder="Prénom" maxlength="50"></div>
+            <div class="fgroup"><span class="flabel">Rôle *</span><select class="finput" id="u-role"><option value="">--</option><option>MEDECIN_VALIDEUR</option><option>MEDECIN_PRESCRIPTEUR</option><option>TECHNICIEN</option><option>SECRETAIRE</option><option>ADMIN</option></select></div>
+            <div class="fgroup"><span class="flabel">Email *</span><input class="finput" type="email" id="u-email" placeholder="prenom.nom@bethesda-lab.fr"></div>
+            <div class="fgroup"><span class="flabel">Mot de passe *</span><input class="finput" type="password" id="u-mdp" placeholder="Mot de passe sécurisé"></div>
+            <div class="fgroup"><span class="flabel">Téléphone</span><input class="finput" id="u-tel" placeholder="+33 6 XX XX XX XX"></div>
+          </div>
+          <div class="fmsg" id="f-user-msg"></div>
+          <div class="form-actions">
+            <span style="font-size:11px;color:var(--muted)">* Champs obligatoires</span>
+            <div style="display:flex;gap:10px">
+              <button class="btn-cancel" onclick="toggleFormUser()">Annuler</button>
+              <button class="btn-submit" onclick="sauvegarderUser()">Créer le compte</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="crd"><table class="tbl"><thead><tr><th>ID</th><th>Nom & Prénom</th><th>Rôle</th><th>Email</th><th>Date création</th><th>Statut</th></tr></thead><tbody id="user-body"></tbody></table></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL PATIENT -->
+<div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕ Fermer</button>
+    <h3 id="m-title"></h3>
+    <div id="m-content"></div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:5000/api/v1';
+let TOKEN = localStorage.getItem('bethesda_token') || '';
+let SESSION = null;
+let _patients=[], _examens=[], _stats={}, _porteurs=[], _alertes=[];
+let chartC1,chartC2,chartC3,chartCS1,chartCS2,chartCS3,chartCS4;
+let formPatientOpen=false, formUserOpen=false;
+
+// ── Helpers API ──────────────────────────────────────────
+async function api(method, path, body=null) {
+  try {
+    const opts = {
+      method,
+      headers: {'Content-Type':'application/json', 'Authorization':`Bearer ${TOKEN}`}
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(API+path, opts);
+    return await r.json();
+  } catch(e) {
+    return {succes:false, erreur:'API inaccessible — vérifiez que python api.py est lancé'};
+  }
+}
+
+// ── Statut API ───────────────────────────────────────────
+async function checkApi() {
+  const dot = document.getElementById('api-dot');
+  const txt = document.getElementById('api-status-txt');
+  try {
+    const r = await fetch(API+'/sante', {signal: AbortSignal.timeout(3000)});
+    const d = await r.json();
+    if (d.succes) {
+      dot.className='api-dot ok';
+      txt.textContent='API connectée — prête';
+    } else throw new Error();
+  } catch {
+    dot.className='api-dot err';
+    txt.textContent='API hors ligne — lancez : python api.py';
+  }
+}
+
+// ── LOGIN ─────────────────────────────────────────────────
+async function doLogin() {
+  const btn = document.getElementById('btn-login');
+  const err = document.getElementById('login-err');
+  const email = document.getElementById('l-email').value.trim();
+  const mdp   = document.getElementById('l-mdp').value;
+  if (!email || !mdp) { showLoginErr('Email et mot de passe requis'); return; }
+  btn.disabled = true; btn.textContent = 'Connexion…';
+  const r = await api('POST','/auth/connexion',{email, mot_de_passe:mdp});
+  btn.disabled = false; btn.textContent = 'Se connecter';
+  if (!r.succes) { showLoginErr(r.erreur || 'Identifiants incorrects'); return; }
+  TOKEN = r.data.token;
+  SESSION = r.data;
+  localStorage.setItem('bethesda_token', TOKEN);
+  demarrerApp();
+}
+
+function showLoginErr(msg) {
+  const el = document.getElementById('login-err');
+  el.textContent = msg; el.style.display='block';
+}
+
+document.getElementById('l-mdp').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('l-email').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('l-mdp').focus(); });
+
+async function tryAutoLogin() {
+  if (!TOKEN) return;
+  const r = await api('GET','/auth/verifier');
+  if (r.succes) {
+    const u = await api('GET','/utilisateurs');
+    SESSION = {role: r.data.role, id: r.data.sub};
+    const users = (u.succes && u.data) ? u.data.find(x=>x.ID_Utilisateur===r.data.sub) : null;
+    if (users) { SESSION.nom=users.Nom; SESSION.prenom=users.Prenom; SESSION.email=users.Email; }
+    demarrerApp();
+  } else {
+    TOKEN=''; localStorage.removeItem('bethesda_token');
+  }
+}
+
+function doLogout() {
+  TOKEN=''; SESSION=null;
+  localStorage.removeItem('bethesda_token');
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('l-email').value='';
+  document.getElementById('l-mdp').value='';
+}
+
+// ── DÉMARRAGE APP ─────────────────────────────────────────
+async function demarrerApp() {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  // Infos utilisateur
+  const nom    = SESSION.prenom || '';
+  const initia = ((SESSION.prenom||'')[0]||'') + ((SESSION.nom||'')[0]||'');
+  document.getElementById('user-av').textContent   = initia.toUpperCase() || '?';
+  document.getElementById('user-name').textContent = `${SESSION.prenom||''} ${SESSION.nom||''}`.trim() || SESSION.email||'';
+  document.getElementById('user-role').textContent = SESSION.role || '';
+  // Afficher menu admin si ADMIN
+  if (SESSION.role === 'ADMIN') document.getElementById('nav-users').style.display='flex';
+  // Horloge
+  updateClock(); setInterval(updateClock, 1000);
+  // Charger les données
+  await chargerTout();
+}
+
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent =
+    'Laboratoire Bethesda · '+d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})+' '+d.toLocaleTimeString('fr-FR');
+}
+
+// ── CHARGEMENT DONNÉES ────────────────────────────────────
+async function chargerTout() {
+  const [rStats, rPat, rExam, rPort, rAlert] = await Promise.all([
+    api('GET','/stats'),
+    api('GET','/patients'),
+    api('GET','/examens'),
+    api('GET','/diagnostics/porteurs'),
+    api('GET','/resultats/critiques'),
+  ]);
+  if (rStats.succes)  { _stats    = rStats.data;  majKPIs(); majCharts(); }
+  if (rPat.succes)    { _patients = rPat.data;    renderPatients(); }
+  if (rExam.succes)   { _examens  = rExam.data;   renderExamens(); }
+  if (rPort.succes)   { _porteurs = rPort.data;   renderPorteurs(); renderDashPorteurs(); }
+  if (rAlert.succes)  { _alertes  = rAlert.data;  renderAlertes(); renderDashAlertes(); }
+}
+
+// ── KPIs ──────────────────────────────────────────────────
+function majKPIs() {
+  document.getElementById('k-patients').textContent   = _stats.nb_patients   || 0;
+  document.getElementById('k-examens').textContent    = _stats.nb_examens    || 0;
+  document.getElementById('k-resultats').textContent  = _stats.nb_resultats  || 0;
+  document.getElementById('k-porteurs').textContent   = _stats.nb_porteurs_uniques || 0;
+  document.getElementById('k-critiques').textContent  = _stats.nb_critiques  || 0;
+  document.getElementById('nb-critiques-pill').textContent = (_stats.nb_critiques||0)+' alertes critiques';
+}
+
+// ── CHARTS ────────────────────────────────────────────────
+const TT = {backgroundColor:'#132035',borderColor:'#1a2d48',borderWidth:1,titleColor:'#b8cde8',bodyColor:'#3d5a7a',padding:9};
+const LG = pos => ({position:pos,labels:{boxWidth:9,padding:11,color:'#3d5a7a',font:{size:10}}});
+
+function creerChart(id,type,labels,data,couleurs) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  return new Chart(ctx, {
+    type,
+    data:{labels,datasets:[{data,backgroundColor:couleurs,borderColor:'#0f1a2e',borderWidth:type==='bar'?0:3,borderRadius:type==='bar'?5:0,borderSkipped:false,hoverOffset:4}]},
+    options:{
+      indexAxis: type==='hbar'?'y':undefined,
+      cutout: type==='doughnut'?'70%':undefined,
+      plugins:{legend:LG('bottom'),tooltip:TT},
+      scales: type==='bar'?{x:{grid:{color:'rgba(26,45,72,.5)'},ticks:{color:'#3d5a7a',font:{size:10}}},y:{grid:{display:false},ticks:{color:'#b8cde8',font:{size:11}}}}:undefined,
+    }
+  });
+}
+
+function majCharts() {
+  const sp = _stats.statuts_patients || {};
+  const dr = _stats.distribution_risque || {};
+  const sl = ['Normal','Suivi','Porteur','Critique'];
+  const sv = [sp.NORMAL||0,sp.SUIVI||0,sp.PORTEUR||0,sp.CRITIQUE||0];
+  const sc = ['#00e096','#ffaa00','#ff3b5c','#a855f7'];
+  if(chartC1){chartC1.data.datasets[0].data=sv;chartC1.update();}
+  else chartC1=creerChart('c1','doughnut',sl,sv,sc);
+  const rl=['Faible','Modéré','Élevé','Très élevé'];
+  const rv=[dr.FAIBLE||0,dr.MODERE||0,dr.ELEVE||0,dr.TRES_ELEVE||0];
+  const rc=['#00e096','#ffaa00','#ff3b5c','#a855f7'];
+  if(chartC2){chartC2.data.datasets[0].data=rv;chartC2.update();}
+  else chartC2=creerChart('c2','doughnut',rl,rv,rc);
+  // Stats charts
+  if(chartCS1){chartCS1.data.datasets[0].data=sv;chartCS1.update();}
+  else chartCS1=creerChart('cs1','doughnut',sl,sv,sc);
+  if(chartCS2){chartCS2.data.datasets[0].data=rv;chartCS2.update();}
+  else chartCS2=creerChart('cs2','doughnut',rl,rv,rc);
+  // Taux porteurs
+  const nb_p  = _stats.nb_porteurs_uniques||0;
+  const nb_np = (_stats.nb_patients||0) - nb_p;
+  const pct = _stats.nb_patients ? Math.round(nb_p/_stats.nb_patients*100) : 0;
+  if(chartCS4){chartCS4.data.datasets[0].data=[nb_p,nb_np];chartCS4.update();}
+  else chartCS4=creerChart('cs4','doughnut',['Porteurs','Non porteurs'],[nb_p,nb_np],['#ff3b5c','rgba(26,45,72,.7)']);
+  document.getElementById('taux-porteurs-lbl').textContent=`${nb_p} porteurs / ${_stats.nb_patients||0} patients = ${pct}%`;
+}
+
+function majChartResultats(data) {
+  const keys = Object.keys(data);
+  const vals = Object.values(data);
+  const cols = {'NORMAL':'#00e096','NEGATIF':'#00e096','BAS':'#00c6ff','LIMITE':'#ffaa00','ELEVE':'#ff3b5c','TRES_ELEVE':'#a855f7','POSITIF':'#c0392b','INCONNU':'#888'};
+  if(chartC3){chartC3.data.labels=keys;chartC3.data.datasets[0].data=vals;chartC3.data.datasets[0].backgroundColor=keys.map(k=>cols[k]||'#888');chartC3.update();}
+  else chartC3=creerChart('c3','bar',keys,vals,keys.map(k=>cols[k]||'#888'));
+  if(chartCS3){chartCS3.data.labels=keys;chartCS3.data.datasets[0].data=vals;chartCS3.data.datasets[0].backgroundColor=keys.map(k=>cols[k]||'#888');chartCS3.update();}
+  else chartCS3=creerChart('cs3','bar',keys,vals,keys.map(k=>cols[k]||'#888'));
+}
+
+// ── PATIENTS ──────────────────────────────────────────────
+const SBADGE={NORMAL:'bnorm',SUIVI:'bsuiv',PORTEUR:'bport',CRITIQUE:'bcrit'};
+const SLBL  ={NORMAL:'Normal',SUIVI:'Suivi',PORTEUR:'Porteur',CRITIQUE:'Critique'};
+
+function updatePatCounts(list) {
+  const all=_patients;
+  document.getElementById('cnt-all').textContent=all.length;
+  ['NORMAL','SUIVI','PORTEUR','CRITIQUE'].forEach(s=>{
+    document.getElementById('cnt-'+s.toLowerCase()).textContent=all.filter(p=>p.Statut_Global===s).length;
+  });
+  document.getElementById('pat-lbl').textContent=`${all.length} patient(s) enregistré(s) — cliquer pour la fiche`;
+}
+
+function renderPatients(list) {
+  list = list||_patients;
+  updatePatCounts();
+  document.getElementById('pat-body').innerHTML=list.map(p=>`<tr onclick="showPatient('${p.ID_Patient}')">
+    <td style="color:var(--accent);font-size:11px;font-weight:700">${p.ID_Patient}</td>
+    <td><div class="pname">${p.Nom} ${p.Prenom}</div></td>
+    <td style="color:var(--muted)">${p.Date_Naissance||'—'}</td>
+    <td style="color:var(--muted)">${p.Sexe==='F'?'Féminin':'Masculin'}</td>
+    <td style="font-weight:600;color:#fff">${p.Groupe_Sanguin||'—'}</td>
+    <td style="font-size:11px;color:var(--muted)">${p.Medecin_Traitant||'—'}</td>
+    <td><span class="bdg ${SBADGE[p.Statut_Global]||'bnorm'}">${SLBL[p.Statut_Global]||p.Statut_Global}</span></td>
+  </tr>`).join('');
+}
+
+function filterPatients(el,s) {
+  document.querySelectorAll('#page-patients .tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderPatients(s?_patients.filter(p=>p.Statut_Global===s):_patients);
+}
+
+// ── FORMULAIRE PATIENT ─────────────────────────────────────
+function toggleFormPatient() {
+  formPatientOpen=!formPatientOpen;
+  const f=document.getElementById('form-patient');
+  f.style.display=formPatientOpen?'block':'none';
+  if(formPatientOpen){
+    ['f-nom','f-prenom','f-ddn','f-sexe','f-gs','f-medecin','f-tel','f-email','f-adresse'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('f-statut').value='NORMAL';
+    showFMsg('f-pat-msg','','');
+    document.getElementById('f-nom').focus();
+  }
+}
+
+function showFMsg(id,msg,type) {
+  const el=document.getElementById(id);
+  el.textContent=msg; el.className='fmsg'+(type?' '+type:'');
+  el.style.display=msg?'block':'none';
+}
+
+async function sauvegarderPatient() {
+  const btn=document.getElementById('btn-save-patient');
+  const nom=document.getElementById('f-nom').value.trim();
+  const prenom=document.getElementById('f-prenom').value.trim();
+  const ddn=document.getElementById('f-ddn').value;
+  const sexe=document.getElementById('f-sexe').value;
+  const gs=document.getElementById('f-gs').value;
+  if (!nom) { showFMsg('f-pat-msg','Nom obligatoire','err'); return; }
+  if (!prenom) { showFMsg('f-pat-msg','Prénom obligatoire','err'); return; }
+  if (!ddn) { showFMsg('f-pat-msg','Date de naissance obligatoire','err'); return; }
+  if (!sexe) { showFMsg('f-pat-msg','Sexe obligatoire','err'); return; }
+  if (!gs) { showFMsg('f-pat-msg','Groupe sanguin obligatoire','err'); return; }
+  btn.disabled=true; btn.textContent='Enregistrement…';
+  const r=await api('POST','/patients',{
+    Nom:nom, Prenom:prenom, Date_Naissance:ddn, Sexe:sexe,
+    Groupe_Sanguin:gs,
+    Medecin_Traitant:document.getElementById('f-medecin').value.trim(),
+    Telephone:document.getElementById('f-tel').value.trim(),
+    Email:document.getElementById('f-email').value.trim(),
+    Adresse:document.getElementById('f-adresse').value.trim(),
+    Statut_Global:document.getElementById('f-statut').value,
+  });
+  btn.disabled=false; btn.textContent='Enregistrer';
+  if(r.succes){
+    showFMsg('f-pat-msg',`✓ Patient créé — ID : ${r.data.ID_Patient}`,'ok');
+    const rPat=await api('GET','/patients');
+    if(rPat.succes){_patients=rPat.data; renderPatients(); majKPIs();}
+    const rStats=await api('GET','/stats');
+    if(rStats.succes){_stats=rStats.data; majKPIs(); majCharts();}
+    setTimeout(()=>{ formPatientOpen=false; document.getElementById('form-patient').style.display='none'; },2500);
+  } else {
+    showFMsg('f-pat-msg',r.erreur||'Erreur lors de la création','err');
+  }
+}
+
+// ── EXAMENS ───────────────────────────────────────────────
+const PBADGE={NORMAL:'bnorm',URGENT:'bel',TRES_URGENT:'bte'};
+const PLBL  ={NORMAL:'Normal',URGENT:'Urgent',TRES_URGENT:'Très urgent'};
+
+function renderExamens(list) {
+  list=list||_examens;
+  document.getElementById('exam-lbl').textContent=`${_examens.length} examen(s) réalisé(s)`;
+  document.getElementById('exam-body').innerHTML=list.map(e=>{
+    const p=_patients.find(x=>x.ID_Patient===e.ID_Patient)||{};
+    return `<tr>
+      <td style="color:var(--accent);font-size:11px;font-weight:700">${e.ID_Examen}</td>
+      <td><div class="pname" onclick="showPatient('${e.ID_Patient}')">${p.Nom||e.ID_Patient} ${p.Prenom||''}</div></td>
+      <td style="font-size:11px;color:var(--text)">${e.Categorie||'—'}</td>
+      <td style="color:var(--muted)">${e.Date_Prelevement||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${e.Mode_Prelevement||'—'}</td>
+      <td><span class="bdg ${PBADGE[e.Priorite]||'bnorm'}">${PLBL[e.Priorite]||e.Priorite}</span></td>
+      <td><span class="bdg bnorm">${e.Statut_Examen||'Validé'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterExamens(el,p) {
+  document.querySelectorAll('#page-examens .tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderExamens(p?_examens.filter(e=>e.Priorite===p):_examens);
+}
+
+// ── PORTEURS ──────────────────────────────────────────────
+const RBADGE={TRES_ELEVE:'bte',ELEVE:'bel',MODERE:'bmo',FAIBLE:'bfa'};
+const RLBL  ={TRES_ELEVE:'Très élevé',ELEVE:'Élevé',MODERE:'Modéré',FAIBLE:'Faible'};
+
+function renderPorteurs() {
+  const ordre=['FAIBLE','MODERE','ELEVE','TRES_ELEVE'];
+  let rows=[];
+  _porteurs.forEach(item=>{
+    const p=item.patient||{};
+    (item.diagnostics||[]).forEach(d=>{
+      rows.push(`<tr onclick="showPatient('${p.ID_Patient||''}')">
+        <td><div class="pname">${p.Nom||'?'} ${p.Prenom||'?'}</div><div class="pid">${p.ID_Patient||'?'}</div></td>
+        <td><div class="patho">${d.Pathologie_Detectee||'—'}</div></td>
+        <td><span class="bdg ${RBADGE[d.Niveau_Risque]||'bfa'}">${RLBL[d.Niveau_Risque]||d.Niveau_Risque}</span></td>
+        <td style="font-size:11px;color:var(--muted);max-width:200px;line-height:1.5">${(d.Recommandation||'—').substring(0,80)}…</td>
+        <td><span class="bdg boui">OUI</span></td>
+      </tr>`);
+    });
+  });
+  document.getElementById('port-body').innerHTML=rows.join('');
+  document.getElementById('port-lbl').textContent=`${_porteurs.length} patient(s) porteur(s) identifié(s)`;
+}
+
+function renderDashPorteurs() {
+  const el=document.getElementById('dash-porteurs');
+  if(!_porteurs.length){el.innerHTML='<p class="no-res">Aucun porteur détecté</p>';return;}
+  const rows=_porteurs.slice(0,5).map(item=>{
+    const p=item.patient||{};
+    const d=(item.diagnostics||[])[0]||{};
+    return `<tr onclick="showPatient('${p.ID_Patient||''}')">
+      <td><div class="pname">${p.Nom||'?'} ${p.Prenom||'?'}</div><div class="pid">${p.ID_Patient}</div></td>
+      <td><div class="patho">${d.Pathologie_Detectee||'—'}</div></td>
+      <td><span class="bdg ${RBADGE[d.Niveau_Risque]||'bfa'}">${RLBL[d.Niveau_Risque]||'—'}</span></td>
+      <td><span class="bdg boui">OUI</span></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<table class="tbl"><thead><tr><th>Patient</th><th>Pathologie</th><th>Risque</th><th>Porteur</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ── ALERTES ───────────────────────────────────────────────
+function renderAlertes() {
+  document.getElementById('alert-lbl').textContent=`${_alertes.length} résultat(s) critique(s)`;
+  const html=_alertes.map(a=>`
+    <div class="aitem" onclick="showPatient('${a.patient_id||''}')">
+      <div class="apat">${a.patient_nom||'?'} ${a.patient_prenom||''} — ${a.patient_id||'?'} &nbsp;(cliquer pour fiche)</div>
+      <div class="aparam">${a.Parametre||'?'} : <span style="color:var(--danger);font-weight:700">${a.Valeur||'?'} ${a.Unite||''}</span></div>
+      <div class="aval">Réf: ${a.Ref_Min||'?'}–${a.Ref_Max||'?'} &nbsp;·&nbsp; ${a.Interpretation||''}</div>
+    </div>`).join('');
+  document.getElementById('alert-body').innerHTML=html||'<p class="no-res">Aucune alerte critique</p>';
+}
+
+function renderDashAlertes() {
+  const el=document.getElementById('dash-alertes');
+  if(!_alertes.length){el.innerHTML='<p class="no-res">Aucune alerte</p>';return;}
+  el.innerHTML=_alertes.slice(0,5).map(a=>`
+    <div class="aitem" onclick="goPage('alertes')">
+      <div class="apat">${a.patient_nom||'?'} ${a.patient_prenom||''} — ${a.patient_id||'?'}</div>
+      <div class="aparam">${a.Parametre||'?'} : <span style="color:var(--danger)">${a.Valeur||'?'} ${a.Unite||''}</span></div>
+      <div class="aval">${a.Interpretation||''}</div>
+    </div>`).join('');
+}
+
+// ── RECHERCHE ─────────────────────────────────────────────
+async function doSearch() {
+  const q=document.getElementById('s-input').value.trim();
+  const el=document.getElementById('s-results');
+  if(!q){el.innerHTML='<p class="no-res">Tapez pour rechercher</p>';return;}
+  el.innerHTML='<div class="loading"><div class="spin"></div>Recherche…</div>';
+  const r=await api('GET',`/patients?q=${encodeURIComponent(q)}`);
+  if(!r.succes){el.innerHTML='<p class="no-res">Erreur API</p>';return;}
+  const list=r.data||[];
+  if(!list.length){el.innerHTML=`<p class="no-res">Aucun résultat pour "${q}"</p>`;return;}
+  el.innerHTML=`<div class="crd"><table class="tbl"><thead><tr><th>ID</th><th>Nom & Prénom</th><th>DDN</th><th>Médecin</th><th>Statut</th></tr></thead><tbody>`+
+  list.map(p=>`<tr onclick="showPatient('${p.ID_Patient}')">
+    <td style="color:var(--accent);font-size:11px;font-weight:700">${p.ID_Patient}</td>
+    <td><div class="pname">${p.Nom} ${p.Prenom}</div></td>
+    <td style="color:var(--muted)">${p.Date_Naissance||'—'}</td>
+    <td style="font-size:11px;color:var(--muted)">${p.Medecin_Traitant||'—'}</td>
+    <td><span class="bdg ${SBADGE[p.Statut_Global]||'bnorm'}">${SLBL[p.Statut_Global]||p.Statut_Global}</span></td>
+  </tr>`).join('')+'</tbody></table></div>';
+}
+document.getElementById('s-input').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+
+// ── UTILISATEURS (ADMIN) ──────────────────────────────────
+async function chargerUtilisateurs() {
+  const r=await api('GET','/utilisateurs');
+  if(!r.succes)return;
+  document.getElementById('user-lbl').textContent=`${r.data.length} compte(s) actifs`;
+  document.getElementById('user-body').innerHTML=r.data.map(u=>`<tr>
+    <td style="color:var(--accent);font-size:11px;font-weight:700">${u.ID_Utilisateur}</td>
+    <td><div class="pname">${u.Nom} ${u.Prenom}</div></td>
+    <td style="font-size:11px;color:var(--text)">${u.Role}</td>
+    <td style="color:var(--muted)">${u.Email}</td>
+    <td style="color:var(--muted)">${u.Date_Creation||'—'}</td>
+    <td><span class="bdg ${u.Statut==='ACTIF'?'bnorm':'bel'}">${u.Statut}</span></td>
+  </tr>`).join('');
+}
+
+function toggleFormUser() {
+  formUserOpen=!formUserOpen;
+  document.getElementById('form-user').style.display=formUserOpen?'block':'none';
+  if(formUserOpen){['u-nom','u-prenom','u-email','u-mdp','u-tel'].forEach(id=>document.getElementById(id).value=''); document.getElementById('u-role').value=''; showFMsg('f-user-msg','','');}
+}
+
+async function sauvegarderUser() {
+  const nom=document.getElementById('u-nom').value.trim();
+  const prenom=document.getElementById('u-prenom').value.trim();
+  const role=document.getElementById('u-role').value;
+  const email=document.getElementById('u-email').value.trim();
+  const mdp=document.getElementById('u-mdp').value;
+  if(!nom||!prenom||!role||!email||!mdp){showFMsg('f-user-msg','Tous les champs * sont obligatoires','err');return;}
+  const r=await api('POST','/utilisateurs',{Nom:nom,Prenom:prenom,Role:role,Email:email,mot_de_passe:mdp,Telephone:document.getElementById('u-tel').value.trim()});
+  if(r.succes){showFMsg('f-user-msg',`✓ Compte créé — ID : ${r.data.ID_Utilisateur}`,'ok'); chargerUtilisateurs(); setTimeout(()=>{formUserOpen=false;document.getElementById('form-user').style.display='none';},2500);}
+  else showFMsg('f-user-msg',r.erreur||'Erreur','err');
+}
+
+// ── MODAL PATIENT ─────────────────────────────────────────
+async function showPatient(pid) {
+  if(!pid)return;
+  document.getElementById('m-title').textContent='Chargement…';
+  document.getElementById('m-content').innerHTML='<div class="loading"><div class="spin"></div>Chargement…</div>';
+  document.getElementById('modal').classList.add('on');
+  const r=await api('GET',`/patients/${pid}`);
+  if(!r.succes){document.getElementById('m-content').innerHTML='<p style="color:var(--danger)">Patient introuvable</p>';return;}
+  const p=r.data.patient;
+  const examens=r.data.examens||[];
+  const diagnostics=r.data.diagnostics||[];
+  const porteurs=diagnostics.filter(d=>d.Est_Porteur==='OUI');
+  document.getElementById('m-title').textContent=`${p.Nom} ${p.Prenom} — ${p.ID_Patient}`;
+  const rows=[['Date de naissance',p.Date_Naissance||'—'],['Sexe',p.Sexe==='F'?'Féminin':'Masculin'],['Groupe sanguin',`<strong style="color:#fff">${p.Groupe_Sanguin||'—'}</strong>`],['Téléphone',p.Telephone||'—'],['Email',p.Email||'—'],['Médecin',p.Medecin_Traitant||'—'],['Inscription',p.Date_Inscription||'—'],['Statut',`<span class="bdg ${SBADGE[p.Statut_Global]||'bnorm'}">${SLBL[p.Statut_Global]||p.Statut_Global}</span>`]];
+  let html=rows.map(([l,v])=>`<div class="mrow"><span class="mlbl">${l}</span><span class="mval">${v}</span></div>`).join('');
+  html+='<div class="msep"></div>';
+  html+=porteurs.length?`<div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:10px">PORTEUR — ${porteurs.length} pathologie(s)</div>`+porteurs.map(d=>`<div class="aitem" style="margin-bottom:6px"><div class="aparam">${d.Pathologie_Detectee}</div><div class="aval">Risque : ${d.Niveau_Risque} · ${d.Recommandation||''}</div></div>`).join(''):`<div style="color:var(--ok);font-weight:700;font-size:12px">NON PORTEUR</div>`;
+  if(examens.length){
+    html+='<div class="msep"></div>';
+    html+=`<div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.5px">EXAMENS (${examens.length})</div>`;
+    html+=examens.map(e=>`<div style="background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-bottom:5px;font-size:11px;display:flex;justify-content:space-between;align-items:center"><span><span style="color:var(--accent);font-weight:700">${e.ID_Examen}</span> · ${e.Categorie||'—'} · ${e.Date_Prelevement||'—'}</span><span class="bdg ${PBADGE[e.Priorite]||'bnorm'}">${PLBL[e.Priorite]||e.Priorite}</span></div>`).join('');
+  }
+  document.getElementById('m-content').innerHTML=html;
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+
+// ── NAVIGATION ────────────────────────────────────────────
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nitem').forEach(n=>n.classList.remove('on'));
+  const pg=document.getElementById('page-'+id);
+  if(pg) pg.classList.add('on');
+  const ni=document.querySelector(`[data-page="${id}"]`);
+  if(ni) ni.classList.add('on');
+  if(id==='utilisateurs') chargerUtilisateurs();
+}
+document.querySelectorAll('.nitem').forEach(n=>{n.addEventListener('click',()=>goPage(n.dataset.page));});
+
+// ── INIT ─────────────────────────────────────────────────
+checkApi();
+setInterval(checkApi, 15000);
+tryAutoLogin();
+</script>
+</body>
+</html>

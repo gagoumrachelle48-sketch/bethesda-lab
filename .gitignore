@@ -1,0 +1,21 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Données sensibles (ne jamais pousser sur GitHub)
+data/
+logs/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

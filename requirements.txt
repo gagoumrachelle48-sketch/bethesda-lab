@@ -1,0 +1,9 @@
+# LABORATOIRE BETHESDA — Dépendances Python
+# Installation : pip install -r requirements.txt
+
+flask>=3.0.0
+flask-cors>=4.0.0
+bcrypt>=4.1.0
+matplotlib>=3.8.0
+python-dotenv>=1.0.0
+gunicorn>=21.0.0
