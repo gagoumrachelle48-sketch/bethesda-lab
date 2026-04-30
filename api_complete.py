@@ -630,9 +630,19 @@ def route_sante():
                        "pdf","facturation","rdv","portail","notif","audit","epidemio"],
     })
 
-@app.route("/", methods=["GET"])
+@app.route("/api", methods=["GET"])
 def racine():
     return ok({"message": "API Bethesda v2.0 — Complète", "docs": f"{API_PREFIX}/sante"})
+
+@app.route("/", methods=["GET"])
+@app.route("/dashboard", methods=["GET"])
+def route_dashboard():
+    import os
+    if os.path.exists("bethesda_dashboard.html"):
+        html = open("bethesda_dashboard.html", encoding="utf-8").read()
+    else:
+        html = "<h1>Dashboard introuvable</h1>"
+    return Response(html, mimetype="text/html")
 
 
 # ─────────────────────────────────────────────
