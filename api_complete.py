@@ -587,6 +587,39 @@ def route_stats():
 #  SANTÉ API
 # ═══════════════════════════════════════════
 
+
+# ═══════════════════════════════════════════
+#  SETUP INITIAL — Créer premier admin
+# ═══════════════════════════════════════════
+
+@app.route(f"{API_PREFIX}/setup", methods=["GET"])
+def route_setup_status():
+    utilisateurs = db.get("utilisateurs")
+    return ok({
+        "nb_utilisateurs": len(utilisateurs),
+        "setup_requis": len(utilisateurs) == 0
+    })
+
+@app.route(f"{API_PREFIX}/setup/admin", methods=["POST"])
+def route_setup_admin():
+    """Crée le premier admin — seulement si aucun utilisateur nexiste."""
+    utilisateurs = db.get("utilisateurs")
+    if utilisateurs:
+        return err("Setup déjà effectué — des utilisateurs existent", 403)
+    body = request.get_json() or {}
+    if not body.get("mot_de_passe"):
+        return err("mot_de_passe requis")
+    body.setdefault("Nom", "ADMIN")
+    body.setdefault("Prenom", "Admin")
+    body.setdefault("Role", "ADMIN")
+    body.setdefault("Email", "admin@bethesda-lab.fr")
+    try:
+        nouveau = auth_mod.creer_utilisateur(body)
+        safe = {k: v for k, v in nouveau.items() if k != "Mot_de_passe_hash"}
+        return ok(safe, "Premier admin créé avec succès", 201)
+    except Exception as e:
+        return err(str(e))
+
 @app.route(f"{API_PREFIX}/sante", methods=["GET"])
 def route_sante():
     return ok({
